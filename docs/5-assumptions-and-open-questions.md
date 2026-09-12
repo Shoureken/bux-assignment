@@ -19,5 +19,7 @@
 
 ## 5.3 Open questions for Engineering (mostly the Trading/Orders team)
 
-1. What's `order-data`'s partition count/key? Determines if the Order-Status Consumer can scale horizontally (4.6) — we don't control this topic.
-2. Is optimistic concurrency expected on the Plan aggregate, or is last-write-wins acceptable for MVP? Not designed anywhere in this document; needs an explicit answer.
+1. Can order placement commands go on a new `order-commands` topic, or must they go through the existing `order-data` topic (5.1 #1)? Needs to be settled before build, not discovered during integration.
+2. Does `OrderRejected` already carry a structured reason code (5.1 #2), or would exposing one be new scope for the Trading/Orders team? Blocks the reactive `PlanDeactivated` path and clear rejection messaging (2.10, 4.7) either way.
+3. What's `order-data`'s partition count/key? Determines if the Order-Status Consumer can scale horizontally (4.6) — we don't control this topic.
+4. Is optimistic concurrency expected on the Plan aggregate, or is last-write-wins acceptable for MVP? Not designed anywhere in this document; needs an explicit answer.
