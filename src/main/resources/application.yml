@@ -1,0 +1,54 @@
+# Illustrative configuration — see docs/detailed/1-architecture-overview.md
+# for the topics/consumer-groups this backs.
+
+spring:
+  application:
+    name: investment-plans-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/investment_plans
+    username: investment_plans
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate # schema owned by migrations, not Hibernate
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # Idempotent producer: required so a retried publish (e.g. Execution
+      # Dispatcher's direct produce, 1.5) can't be observed as a duplicate
+      # send at the Kafka client level, on top of the app-level idempotency
+      # keys (2.5).
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        acks: all
+    consumer:
+      auto-offset-reset: earliest
+      # investment-plan-data/order-data payloads are consumed as raw JSON
+      # strings and decoded manually (EventPayloadCodec / ProjectionCodec) —
+      # only execution-triggers/order-commands/scheduler-tick use this typed
+      # JSON deserializer. A real config would split these into two
+      # @KafkaListener container factories rather than share one default.
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        isolation.level: read_committed
+        spring.json.trusted.packages: com.bux.investmentplans.execution,com.bux.investmentplans.orderstatus,java.time
+
+investment-plans:
+  topics:
+    domain-events: investment-plan-data
+    order-commands: order-commands
+    order-data: order-data
+    scheduler-tick: scheduler-tick
+    execution-triggers: execution-triggers
+
+  execution-dispatcher:
+    scan-page-size: 500 # keyset page size per read-model query (1.5)
+
+  execution-initiator:
+    consumer-group: investment-plans.execution-initiator
+    concurrency: 8 # instances x concurrency <= execution-triggers partition count (32)
